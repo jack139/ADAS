@@ -54,7 +54,6 @@ def score_mgsm(target: str, prediction: str) -> bool:
 
     target = target.replace(",", "")
     prediction = prediction.replace(",", "")
-
     return target == prediction
 
 

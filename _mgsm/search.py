@@ -79,7 +79,7 @@ class LLMAgentBase():
     """
 
     def __init__(self, output_fields: list, agent_name: str,
-                 role='helpful assistant', model='gpt-3.5-turbo-0125', temperature=0.5) -> None:
+                 role='helpful assistant', model='Qwen2-7B-Instruct', temperature=0.5) -> None:
         self.output_fields = output_fields
         self.agent_name = agent_name
 
@@ -121,7 +121,7 @@ class LLMAgentBase():
             response_json = get_json_response_from_gpt(prompt, self.model, system_prompt, self.temperature)
             assert len(response_json) == len(self.output_fields), "not returning enough fields"
         except Exception as e:
-            # print(e)
+            print("Exception During query():", e)
             if "maximum context length" in str(e) and SEARCHING_MODE:
                 raise AssertionError("The context is too long. Please try to design the agent to have shorter context.")
             # try to fill in the missing field
@@ -171,8 +171,7 @@ def search(args):
         try:
             acc_list = evaluate_forward_fn(args, solution["code"])
         except Exception as e:
-            print("During evaluating initial archive:")
-            print(e)
+            print("Exception During evaluating initial archive:", e)
             continue
 
         fitness_str = bootstrap_confidence_interval(acc_list)
@@ -203,8 +202,7 @@ def search(args):
             msg_list.append({"role": "user", "content": Reflexion_prompt_2})
             next_solution = get_json_response_from_gpt_reflect(msg_list, args.model)
         except Exception as e:
-            print("During LLM generate new solution:")
-            print(e)
+            print("Exception During LLM generate new solution:", e)
             n -= 1
             continue
 
@@ -216,15 +214,13 @@ def search(args):
                     raise Exception("All 0 accuracy")
                 break
             except Exception as e:
-                print("During evaluation:")
-                print(e)
+                print("Exception During evaluation:", e)
                 msg_list.append({"role": "assistant", "content": str(next_solution)})
                 msg_list.append({"role": "user", "content": f"Error during evaluation:\n{e}\nCarefully consider where you went wrong in your latest implementation. Using insights from previous attempts, try to debug the current code to implement the same thought. Repeat your previous thought in 'thought', and put your thinking for debugging in 'debug_thought'"})
                 try:
                     next_solution = get_json_response_from_gpt_reflect(msg_list, args.model)
                 except Exception as e:
-                    print("During LLM generate new solution:")
-                    print(e)
+                    print("Exception During LLM generate new solution:", e)
                     continue
                 continue
         if not acc_list:
@@ -270,7 +266,7 @@ def evaluate(args):
         try:
             acc_list = evaluate_forward_fn(args, sol["code"])
         except Exception as e:
-            print(e)
+            print("Exception During evaluate():", e)
             continue
         fitness_str = bootstrap_confidence_interval(acc_list)
         sol['test_fitness'] = fitness_str
@@ -324,13 +320,20 @@ def evaluate_forward_fn(args, forward_str):
 
     for q_idx, res in enumerate(results):
         try:
+            if isinstance(res, list):
+                for xx in res:
+                    if isinstance(xx, Info) and xx.name=='answer':
+                        res = xx
+                        break
             if isinstance(res, Info):
                 extracted_answer = res.content
             else:
                 extracted_answer = res
             correct_answer = answers[q_idx]
-            correct = score_mgsm(correct_answer, extracted_answer)
+            #print(correct_answer, extracted_answer) # for test
+            correct = score_mgsm(str(correct_answer), str(extracted_answer))
         except Exception as e:
+            print("Exception During processing results:", e)
             acc_list.append(0)
             continue
 
@@ -338,15 +341,18 @@ def evaluate_forward_fn(args, forward_str):
     print(f"acc: {bootstrap_confidence_interval(acc_list)}")
     return acc_list
 
-
+'''
+测试：
+python3.9 _mgsm/search.py --n_generation 20 --valid_size 20 --test_size 20
+'''
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--valid_size', type=int, default=15) # 原数据默认为 128
+    parser.add_argument('--valid_size', type=int, default=128)
     parser.add_argument('--test_size', type=int, default=800)
     parser.add_argument('--shuffle_seed', type=int, default=0)
     parser.add_argument('--n_repreat', type=int, default=1)
     parser.add_argument('--multiprocessing', action='store_true', default=True)
-    parser.add_argument('--max_workers', type=int, default=48)
+    parser.add_argument('--max_workers', type=int, default=10)
     parser.add_argument('--debug', action='store_true', default=True)
     parser.add_argument('--save_dir', type=str, default='results/')
     parser.add_argument('--expr_name', type=str, default="mgsm_qwen2_results")
