@@ -245,7 +245,12 @@ import backoff
 from utils import random_id
 
 # Initialize the OpenAI client
-client = openai.OpenAI()
+client = openai.OpenAI(
+                    base_url='http://localhost:8000/v1',
+                    timeout=60,
+                    max_retries=3,
+                    api_key="fake_key",
+)
 
 # Named tuple for holding task information
 Info = namedtuple('Info', ['name', 'author', 'content', 'iteration_idx'])
@@ -283,6 +288,7 @@ def get_json_response_from_gpt(msg, model, system_message, temperature=0.5):
     )
     content = response.choices[0].message.content
     json_dict = json.loads(content)
+    #print(f\"gpt\\n--> {system_message} | {msg}\\n<-- {json_dict}\\n\")
     return json_dict
 
 class LLMAgentBase:
@@ -298,7 +304,7 @@ class LLMAgentBase:
     - id (str): Unique identifier for the agent instance.
     \"""
 
-    def __init__(self, output_fields: list, agent_name: str, role='helpful assistant', model='gpt-3.5-turbo-0125', temperature=0.5) -> None:
+    def __init__(self, output_fields: list, agent_name: str, role='helpful assistant', model='Qwen2-7B-Instruct', temperature=0.5) -> None:
         self.output_fields = output_fields
         self.agent_name = agent_name
         self.role = role

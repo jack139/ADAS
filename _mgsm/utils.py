@@ -44,7 +44,8 @@ LANG_TO_INSTRUCTIONS = {
 
 LANG_TO_FPATH = lambda lang: f"dataset/mgsm/mgsm_{lang}.tsv"
 
-ALL_LANGUAGES = ["bn", "de", "en", "es", "fr", "ja", "ru", "sw", "te", "th", "zh"]
+#ALL_LANGUAGES = ["bn", "de", "en", "es", "fr", "ja", "ru", "sw", "te", "th", "zh"]
+ALL_LANGUAGES = ["zh"]
 
 
 def score_mgsm(target: str, prediction: str) -> bool:

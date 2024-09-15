@@ -13,7 +13,12 @@ from tqdm import tqdm
 
 from mgsm_prompt import get_init_archive, get_prompt, get_reflexion_prompt
 
-client = openai.OpenAI()
+client = openai.OpenAI(
+                    base_url='http://localhost:8000/v1',
+                    timeout=60,
+                    max_retries=3,
+                    api_key="fake_key",
+        )
 
 from utils import get_all_examples, random_id, bootstrap_confidence_interval, score_mgsm
 
@@ -46,6 +51,7 @@ def get_json_response_from_gpt(
     json_dict = json.loads(content)
     # cost = response.usage.completion_tokens / 1000000 * 15 + response.usage.prompt_tokens / 1000000 * 5
     assert not json_dict is None
+    #print(f"gpt\n--> {system_message} | {msg}\n<-- {json_dict}\n")
     return json_dict
 
 
@@ -63,6 +69,7 @@ def get_json_response_from_gpt_reflect(
     content = response.choices[0].message.content
     json_dict = json.loads(content)
     assert not json_dict is None
+    #print(f"gpt_reflect\n--> {msg_list}\n<-- {json_dict}\n")
     return json_dict
 
 
@@ -334,7 +341,7 @@ def evaluate_forward_fn(args, forward_str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--valid_size', type=int, default=128)
+    parser.add_argument('--valid_size', type=int, default=15) # 原数据默认为 128
     parser.add_argument('--test_size', type=int, default=800)
     parser.add_argument('--shuffle_seed', type=int, default=0)
     parser.add_argument('--n_repreat', type=int, default=1)
@@ -342,12 +349,12 @@ if __name__ == "__main__":
     parser.add_argument('--max_workers', type=int, default=48)
     parser.add_argument('--debug', action='store_true', default=True)
     parser.add_argument('--save_dir', type=str, default='results/')
-    parser.add_argument('--expr_name', type=str, default="mgsm_gpt3.5_results")
+    parser.add_argument('--expr_name', type=str, default="mgsm_qwen2_results")
     parser.add_argument('--n_generation', type=int, default=30)
     parser.add_argument('--debug_max', type=int, default=3)
     parser.add_argument('--model',
                         type=str,
-                        default='gpt-4o-2024-05-13',
+                        default='Qwen2-7B-Instruct',
                         choices=['gpt-4-turbo-2024-04-09', 'gpt-3.5-turbo-0125', 'gpt-4o-2024-05-13'])
 
     args = parser.parse_args()
