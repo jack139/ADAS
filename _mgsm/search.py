@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import argparse
 import copy
 import json
@@ -11,7 +13,7 @@ import numpy as np
 import openai
 from tqdm import tqdm
 
-from mgsm_prompt import get_init_archive, get_prompt, get_reflexion_prompt
+from mgsm_prompt_zh import get_init_archive, get_prompt, get_reflexion_prompt
 
 client_chat = openai.OpenAI(
                     base_url='http://localhost:8000/v1',
@@ -169,7 +171,7 @@ class AgentSystem():
 def search(args):
     file_path = os.path.join(args.save_dir, f"{args.expr_name}_run_archive.json")
     if os.path.exists(file_path):
-        with open(file_path, 'r') as json_file:
+        with open(file_path, 'r', encoding='utf-8') as json_file:
             archive = json.load(json_file)
         if "generation" in archive[-1] and isinstance(archive[-1]['generation'], int):
             start = archive[-1]['generation']
@@ -196,8 +198,8 @@ def search(args):
 
         # save results
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w') as json_file:
-            json.dump(archive, json_file, indent=4)
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(archive, json_file, indent=4, ensure_ascii=False)
 
     for n in range(start, args.n_generation):
         print(f"============Generation {n + 1}=================")
@@ -256,23 +258,23 @@ def search(args):
 
         # save results
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w') as json_file:
-            json.dump(archive, json_file, indent=4)
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(archive, json_file, indent=4, ensure_ascii=False)
 
 
 def evaluate(args):
     file_path = os.path.join(args.save_dir, f"{args.expr_name}_run_archive.json")
     eval_file_path = str(os.path.join(args.save_dir, f"{args.expr_name}_run_archive.json")).strip(".json") + "_evaluate.json"
-    with open(file_path, 'r') as json_file:
+    with open(file_path, 'r', encoding='utf-8') as json_file:
         archive = json.load(json_file)
     eval_archive = []
     if os.path.exists(eval_file_path):
-        with open(eval_file_path, 'r') as json_file:
+        with open(eval_file_path, 'r', encoding='utf-8') as json_file:
             eval_archive = json.load(json_file)
 
     current_idx = 0
     while (current_idx < len(archive)):
-        with open(file_path, 'r') as json_file:
+        with open(file_path, 'r', encoding='utf-8') as json_file:
             archive = json.load(json_file)
         if current_idx < len(eval_archive):
             current_idx += 1
@@ -291,8 +293,8 @@ def evaluate(args):
 
         # save results
         os.makedirs(os.path.dirname(eval_file_path), exist_ok=True)
-        with open(eval_file_path, 'w') as json_file:
-            json.dump(eval_archive, json_file, indent=4)
+        with open(eval_file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(eval_archive, json_file, indent=4, ensure_ascii=False)
 
 
 def evaluate_forward_fn(args, forward_str):
@@ -332,6 +334,7 @@ def evaluate_forward_fn(args, forward_str):
     agentSystem = AgentSystem()
 
     acc_list = []
+    acc_result = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(tqdm(executor.map(agentSystem.forward, task_queue), total=len(task_queue)))
 
@@ -346,16 +349,22 @@ def evaluate_forward_fn(args, forward_str):
                 extracted_answer = res.content
             else:
                 extracted_answer = res
+            if isinstance(extracted_answer, Info): # Info 里套 Info
+                extracted_answer = extracted_answer.content
+            if isinstance(extracted_answer, tuple): # Info 里套 tuple
+                if len(extracted_answer)>0:
+                    extracted_answer = extracted_answer[0]
             correct_answer = answers[q_idx]
             #print(correct_answer, extracted_answer) # for test
+            acc_result.append((correct_answer, extracted_answer))
             correct = score_mgsm(str(correct_answer), str(extracted_answer))
         except Exception as e:
             print("Exception During processing results:", e)
             acc_list.append(0)
             continue
-
         acc_list.append(1 if correct else 0)
     print(f"acc: {bootstrap_confidence_interval(acc_list)}")
+    print(acc_result) # for test
     return acc_list
 
 '''
@@ -372,7 +381,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_workers', type=int, default=24)
     parser.add_argument('--debug', action='store_true', default=True)
     parser.add_argument('--save_dir', type=str, default='results/')
-    parser.add_argument('--expr_name', type=str, default="mgsm_qwen2.5_results")
+    parser.add_argument('--expr_name', type=str, default="mgsm_qwen2.5_results_zh")
     parser.add_argument('--n_generation', type=int, default=30)
     parser.add_argument('--debug_max', type=int, default=3)
     parser.add_argument('--model',
