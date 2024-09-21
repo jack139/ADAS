@@ -13,8 +13,15 @@ from tqdm import tqdm
 
 from mgsm_prompt import get_init_archive, get_prompt, get_reflexion_prompt
 
-client = openai.OpenAI(
+client_chat = openai.OpenAI(
                     base_url='http://localhost:8000/v1',
+                    timeout=60,
+                    max_retries=3,
+                    api_key="fake_key",
+        )
+
+client_coder = openai.OpenAI(
+                    base_url='http://localhost:8001/v1',
                     timeout=60,
                     max_retries=3,
                     api_key="fake_key",
@@ -39,6 +46,11 @@ def get_json_response_from_gpt(
         system_message,
         temperature=0.5
 ):
+    if 'Coder' in model:
+        client = client_coder
+    else:
+        client = client_chat
+
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -61,6 +73,11 @@ def get_json_response_from_gpt_reflect(
         model,
         temperature=0.8
 ):
+    if 'Coder' in model:
+        client = client_coder
+    else:
+        client = client_chat
+
     response = client.chat.completions.create(
         model=model,
         messages=msg_list,
@@ -79,7 +96,7 @@ class LLMAgentBase():
     """
 
     def __init__(self, output_fields: list, agent_name: str,
-                 role='helpful assistant', model='Qwen2-7B-Instruct', temperature=0.5) -> None:
+                 role='helpful assistant', model='Qwen2.5-7B-Instruct', temperature=0.5) -> None:
         self.output_fields = output_fields
         self.agent_name = agent_name
 
@@ -352,15 +369,15 @@ if __name__ == "__main__":
     parser.add_argument('--shuffle_seed', type=int, default=0)
     parser.add_argument('--n_repreat', type=int, default=1)
     parser.add_argument('--multiprocessing', action='store_true', default=True)
-    parser.add_argument('--max_workers', type=int, default=10)
+    parser.add_argument('--max_workers', type=int, default=24)
     parser.add_argument('--debug', action='store_true', default=True)
     parser.add_argument('--save_dir', type=str, default='results/')
-    parser.add_argument('--expr_name', type=str, default="mgsm_qwen2_results")
+    parser.add_argument('--expr_name', type=str, default="mgsm_qwen2.5_results")
     parser.add_argument('--n_generation', type=int, default=30)
     parser.add_argument('--debug_max', type=int, default=3)
     parser.add_argument('--model',
                         type=str,
-                        default='Qwen2-7B-Instruct',
+                        default='Qwen2.5-Coder-7B-Instruct',
                         choices=['gpt-4-turbo-2024-04-09', 'gpt-3.5-turbo-0125', 'gpt-4o-2024-05-13'])
 
     args = parser.parse_args()
