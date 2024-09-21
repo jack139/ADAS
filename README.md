@@ -1,3 +1,8 @@
+## 中文模型测试
+
+基于 Qwen2.5-7B 模型，改为中文 prompt 测试 MGSM 数据集。具体过程见 TEST.md
+
+
 <h1 align="center">
   <img src="misc/art_fig.png" width="200" /></a><br>
   <b>Automated Design of Agentic Systems</b><br>
