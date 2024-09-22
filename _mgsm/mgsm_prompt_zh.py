@@ -108,7 +108,7 @@ LLM_debate = {
     debate_instruction = "鉴于其他智能体对问题的解决方案，请将他们的意见视为补充建议。请仔细思考并提供更新的答案。"
     
     # 初始化具有不同角色和适度temperature的辩论智能体，以进行不同的推理
-    debate_agents = [LLMAgentBase(['thinking', 'answer'], 'Debate Agent', temperature=0.8, role=role) for role in ['Math Professor', 'Grade School Teacher', 'Math Enthusiast']]
+    debate_agents = [LLMAgentBase(['thinking', 'answer'], 'Debate Agent', temperature=0.8, role=role) for role in ['数学教授', '小学教师', '数学爱好者']]
 
     # 根据所有辩论和解决方案做出最终决策的指令
     final_decision_instruction = "综合以上思考和回答，仔细推理，给出最终答案。"
@@ -200,7 +200,7 @@ Role_Assignment = {"thought": "与 Auto-GPT 和专家提示类似，我们可以
                    "code": """def forward(self, taskInfo):
         # 逐步推理的指令
         cot_instruction = "请逐步思考然后解决任务。"
-        expert_agents = [LLMAgentBase(['thinking', 'answer'], 'Expert Agent', role=role) for role in ['Math Professor', 'Grade School Teacher', 'Math Enthusiast', 'Helpful Assistant']]
+        expert_agents = [LLMAgentBase(['thinking', 'answer'], 'Expert Agent', role=role) for role in ['数学教授', '小学教师', '数学爱好者', 'Helpful Assistant']]
 
         # 将任务分配给适当专家的说令
         routing_instruction = "给出任务后，请选择一位专家来回答问题。选择范围：数学教授、小学教师、数学爱好者。"
@@ -536,15 +536,15 @@ def get_init_archive():
 
 
 def get_prompt(current_archive, adaptive=False):
-    archive_str = ",\n".join([json.dumps(sol) for sol in current_archive])
+    archive_str = ",\n".join([json.dumps(sol, ensure_ascii=False) for sol in current_archive])
     archive_str = f"[{archive_str}]"
     prompt = base.replace("[存档]", archive_str)
-    prompt = prompt.replace("[示例]", json.dumps(EXAMPLE))
+    prompt = prompt.replace("[示例]", json.dumps(EXAMPLE, ensure_ascii=False))
 
     return system_prompt, prompt
 
 
 def get_reflexion_prompt(prev_example):
-    prev_example_str = "这是您之前尝试过的智能体：\n" + json.dumps(prev_example) + "\n\n"
+    prev_example_str = "这是您之前尝试过的智能体：\n" + json.dumps(prev_example, ensure_ascii=False) + "\n\n"
     r1 = Reflexion_prompt_1.replace("[示例]", prev_example_str) if prev_example else Reflexion_prompt_1.replace("[示例]", "")
     return r1, Reflexion_prompt_2
