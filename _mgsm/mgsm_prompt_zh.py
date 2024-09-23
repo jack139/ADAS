@@ -2,6 +2,14 @@
 
 import json
 
+QWEN2_5_CODER_7B = ("Qwen2.5-Coder-7B-Instruct", 'http://localhost:8001/v1')
+QWEN2_5_7B = ("Qwen2.5-7B-Instruct", 'http://localhost:8000/v1')
+QWEN2_5_14B = ("Qwen2.5-14B-Instruct", 'http://localhost:8000/v1')
+
+META_AGENT = QWEN2_5_CODER_7B
+BASE_AGENT = QWEN2_5_7B
+
+
 EXAMPLE = {
     "thought": "**见解：**\n您对下一个有趣的智能体的见解。\n**总体思路：**\n您的推理和智能体设计背后的总体概念。\n**实施：**\n逐步描述实施过程。",
     "name": "您建议的智能体名称",
@@ -306,7 +314,7 @@ class LLMAgentBase:
     - id (str): Unique identifier for the agent instance.
     \"""
 
-    def __init__(self, output_fields: list, agent_name: str, role='helpful assistant', model='Qwen2.5-7B-Instruct', temperature=0.5) -> None:
+    def __init__(self, output_fields: list, agent_name: str, role='helpful assistant', model='[BASE_AGENT]', temperature=0.5) -> None:
         self.output_fields = output_fields
         self.agent_name = agent_name
         self.role = role
@@ -538,7 +546,7 @@ def get_init_archive():
 def get_prompt(current_archive, adaptive=False):
     archive_str = ",\n".join([json.dumps(sol, ensure_ascii=False) for sol in current_archive])
     archive_str = f"[{archive_str}]"
-    prompt = base.replace("[存档]", archive_str)
+    prompt = base.replace("[BASE_AGENT]", BASE_AGENT[0]).replace("[存档]", archive_str)
     prompt = prompt.replace("[示例]", json.dumps(EXAMPLE, ensure_ascii=False))
 
     return system_prompt, prompt
