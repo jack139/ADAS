@@ -1,0 +1,39 @@
+[
+    {
+        "thought": "通过鼓励 LLM 逐步思考而不是直接输出答案，CoT推理能够通过中间步骤解决复杂问题。这种做法提高了模型处理需要更深入推理的任务的能力，并提供了对其决策过程的洞察。",
+        "name": "Chain-of-Thought",
+        "code": "def forward(self, taskInfo):\n    # 思维链 (CoT) 的指令\n    # 这是让LLM在解决任务之前能够一步步思考的重要实践。\n    cot_instruction = \"请逐步思考然后解决任务。\"\n\n    # 实例化一个专门用于 CoT 的新 LLM 智能体\n    # 为了让LLM在回答之前思考，我们需要设置一个额外的输出字段'thinking'。\n    cot_agent = LLMAgentBase(['thinking', 'answer'], 'Chain-of-Thought Agent')\n\n    # 准备 CoT 智能体的输入\n    # 输入应该是 Info 列表，第一个通常是 taskInfo\n    cot_agent_inputs = [taskInfo]\n\n    # 获取 CoT 智能体的响应\n    thinking, answer = cot_agent(cot_agent_inputs, cot_instruction)\n\n    # 仅返回最终答案\n    return answer\n",
+        "generation": "initial",
+        "fitness": "95% Bootstrap Confidence Interval: (64.8%, 80.5%), Median: 72.7%"
+    },
+    {
+        "thought": "虽然 LLM 可以得出正确答案，但其推理方式可能有所不同。通过在temperature设置下反复询问同一个问题，我们可以生成不同的推理路径。然后，我们将这些思维链 (CoT) 智能体的多个答案组合起来，通过集成产生更准确的最终答案。",
+        "name": "Self-Consistency with Chain-of-Thought",
+        "code": "def forward(self, taskInfo):\n    # 逐步推理的指令\n    cot_instruction = \"请逐步思考然后解决任务。\"\n    N = 5 # CoT 智能体的数量\n\n    # 初始化多个 CoT 智能体，使其具有更高的temperature，以实现不同的推理\n    cot_agents = [LLMAgentBase(['thinking', 'answer'], 'Chain-of-Thought Agent', temperature=0.8) for _ in range(N)]\n\n    # 多数投票函数用于选择最常见的答案\n    from collections import Counter\n    def majority_voting(answers):\n        return Counter(answers).most_common(1)[0][0]\n    \n    possible_answers = []\n    for i in range(N):\n        thinking, answer = cot_agents[i]([taskInfo], cot_instruction)\n        possible_answers.append(answer.content)\n\n    # 整合来自多个 CoT 智能体的答案\n    answer = majority_voting(possible_answers)\n    return answer  \n"
+    },
+    {
+        "thought": "为了提高其性能，LLM 可以根据反馈反复改进其答案。通过反思之前的尝试并结合反馈，该模型可以改进其推理并提供更准确的解决方案。",
+        "name": "Self-Refine (Reflexion)",
+        "code": "def forward(self, taskInfo):\n    # 初步推理的指令\n    cot_initial_instruction = \"请逐步思考然后解决任务。\"\n\n    # 反思以前的尝试并提出改进意见的指令\n    cot_reflect_instruction = \"根据之前的尝试和反馈，仔细考虑在最近的尝试中可能出错的地方。利用之前尝试中的经验，尝试更好地解决任务。\"\n    cot_agent = LLMAgentBase(['thinking', 'answer'], 'Chain-of-Thought Agent')\n\n    # 提供反馈和纠正答案的指令\n    critic_instruction = \"请检查以上答案，并批评其中可能错误的地方。如果你绝对确定它是正确的，请在'correct'中输出'True'。\"\n    critic_agent = LLMAgentBase(['feedback', 'correct'], 'Critic Agent')\n    \n    N_max = 5 # 最大尝试次数\n\n    # 初次尝试\n    cot_inputs = [taskInfo]\n    thinking, answer = cot_agent(cot_inputs, cot_initial_instruction, 0)\n\n    for i in range(N_max):\n        # 从评论者那里获得反馈和正确的状态\n        feedback, correct = critic_agent([taskInfo, thinking, answer], critic_instruction, i)\n        if correct.content == 'True':\n            break\n            \n        # 为下一次迭代的输入添加反馈\n        cot_inputs.extend([thinking, answer, feedback])\n\n        # 反思之前的尝试并完善答案\n        thinking, answer = cot_agent(cot_inputs, cot_reflect_instruction, i + 1)\n    return answer\n"
+    },
+    {
+        "thought": "通过让不同的LLM互相辩论，我们可以利用他们不同的观点来找到更好的任务解决方案。",
+        "name": "LLM Debate",
+        "code": "def forward(self, taskInfo):\n    # 初步推理的指令\n    debate_initial_instruction = \"请逐步思考然后解决任务。\"\n\n    # 根据其他智能体的解决方案进行讨论和更新解决方案的指令\n    debate_instruction = \"鉴于其他智能体对问题的解决方案，请将他们的意见视为补充建议。请仔细思考并提供更新的答案。\"\n    \n    # 初始化具有不同角色和适度temperature的辩论智能体，以进行不同的推理\n    debate_agents = [LLMAgentBase(['thinking', 'answer'], 'Debate Agent', temperature=0.8, role=role) for role in ['数学教授', '小学教师', '数学爱好者']]\n\n    # 根据所有辩论和解决方案做出最终决策的指令\n    final_decision_instruction = \"综合以上思考和回答，仔细推理，给出最终答案。\"\n    final_decision_agent = LLMAgentBase(['thinking', 'answer'], 'Final Decision Agent', temperature=0.1)\n\n    max_round = 2 # 辩论最大轮数\n    all_thinking = [[] for _ in range(max_round)]\n    all_answer = [[] for _ in range(max_round)]\n\n    # 进行辩论\n    for r in range(max_round):\n        for i in range(len(debate_agents)):\n            if r == 0:\n                thinking, answer = debate_agents[i]([taskInfo], debate_initial_instruction)\n            else:\n                input_infos = [taskInfo] + [all_thinking[r-1][i]] + all_thinking[r-1][:i] + all_thinking[r-1][i+1:]\n                thinking, answer = debate_agents[i](input_infos, debate_instruction)\n            all_thinking[r].append(thinking)\n            all_answer[r].append(answer)\n    \n    # 根据所有辩论结果和解决方案做出最终决定\n    thinking, answer = final_decision_agent([taskInfo] + all_thinking[max_round-1] + all_answer[max_round-1], final_decision_instruction)\n    return answer\n"
+    },
+    {
+        "thought": "让 LLM 首先思考解决此任务所涉及的原理，这可能会有所帮助。通过理解底层原理，模型可以更好地推理问题并提供更准确的解决方案。",
+        "name": "Step-back Abstraction",
+        "code": "def forward(self, taskInfo):\n        # 理解任务所涉及原理的指令\n        principle_instruction = \"解决这个任务涉及哪些物理、化学或生物原理和概念？首先一步一步思考。然后列出所有涉及的原理并解释它们。\"\n        \n        # 根据原则解决任务的指令\n        cot_instruction = \"给出问题以及问题背后涉及的原理，一步步思考，然后解决任务。\"\n        \n        # 实例化 LLM 智能体\n        principle_agent = LLMAgentBase(['thinking', 'principle'], 'Principle Agent')\n        cot_agent = LLMAgentBase(['thinking', 'answer'], 'Chain-of-Thought Agent')\n        \n        # 获取任务中涉及的原则\n        thinking, principle = principle_agent([taskInfo], principle_instruction)\n\n        # 运用原则解决任务\n        thinking, answer = cot_agent([taskInfo, thinking, principle], cot_instruction)\n        return answer\n"
+    },
+    {
+        "thought": "与质量多样性方法类似，让 LLM 生成多个不同的有趣解决方案可能会有所帮助。通过鼓励模型探索不同的推理路径，我们可以增加找到最佳解决方案的机会。",
+        "name": "Quality-Diversity",
+        "code": "def forward(self, taskInfo):\n    # 初步推理的指令\n    cot_initial_instruction = \"请逐步思考然后解决任务。\"\n\n    # 给出不同答案的指令\n    qd_instruction = \"鉴于以前的尝试，尝试想出另一种有趣的方法来解决任务。\"\n    cot_agent = LLMAgentBase(['thinking', 'answer'], 'Chain-of-Thought Agent')\n\n    # 根据收集到的推理和答案进行最终决策的指令\n    final_decision_instruction = \"给出上述所有解决方案，仔细推理并给出最终答案。\"\n    final_decision_agent = LLMAgentBase(['thinking', 'answer'], 'Final Decision Agent', temperature=0.1)\n    \n    N_max = 3 # 最大尝试次数\n\n    # 初次尝试\n    cot_inputs = [taskInfo]\n    possible_answers = []\n    thinking, answer = cot_agent(cot_inputs, cot_initial_instruction, 0)\n\n    # 将答案添加到可能的答案列表中\n    possible_answers.extend([thinking, answer])\n\n    for i in range(N_max):\n        # 反思之前的尝试并产生另一个有趣的答案\n        cot_inputs.extend([thinking, answer])\n\n        # 生成另一个有趣的答案\n        thinking, answer = cot_agent(cot_inputs, qd_instruction, i + 1)\n        possible_answers.extend([thinking, answer])\n\n    # 根据所有生成的答案做出最终决定\n    thinking, answer = final_decision_agent([taskInfo] + possible_answers, final_decision_instruction)\n    return answer\n"
+    },
+    {
+        "thought": "与 Auto-GPT 和专家提示类似，我们可以在设计中使用动态控制流让智能体决定我们应该使用哪个专家。",
+        "name": "Dynamic Assignment of Roles",
+        "code": "def forward(self, taskInfo):\n        # 逐步推理的指令\n        cot_instruction = \"请逐步思考然后解决任务。\"\n        expert_agents = [LLMAgentBase(['thinking', 'answer'], 'Expert Agent', role=role) for role in ['数学教授', '小学教师', '数学爱好者', 'Helpful Assistant']]\n\n        # 将任务分配给适当专家的说令\n        routing_instruction = \"给出任务后，请选择一位专家来回答问题。选择范围：数学教授、小学教师、数学爱好者。\"\n        routing_agent = LLMAgentBase(['choice'], 'Routing agent')\n\n        # 选择专家来安排任务\n        choice = routing_agent([taskInfo], routing_instruction)[0]\n\n        if '教授' in choice.content.lower():\n            expert_id = 0\n        elif '教师' in choice.content.lower() or '老师' in choice.content.lower():\n            expert_id = 1\n        elif '爱好者' in choice.content.lower():\n            expert_id = 2\n        else:\n            expert_id = 3 # Default to helpful assistant\n\n        thinking, answer = expert_agents[expert_id]([taskInfo], cot_instruction)\n        return answer\n"
+    }
+]

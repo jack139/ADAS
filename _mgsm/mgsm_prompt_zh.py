@@ -5,6 +5,7 @@ import json
 QWEN2_5_CODER_7B = ("Qwen2.5-Coder-7B-Instruct", 'http://localhost:8001/v1')
 QWEN2_5_7B = ("Qwen2.5-7B-Instruct", 'http://localhost:8000/v1')
 QWEN2_5_14B = ("Qwen2.5-14B-Instruct", 'http://localhost:8000/v1')
+QWEN2_5_32B = ("Qwen2.5-32B-Instruct", 'http://localhost:8000/v1')
 
 META_AGENT = QWEN2_5_CODER_7B
 BASE_AGENT = QWEN2_5_7B
